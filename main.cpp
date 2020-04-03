@@ -45,6 +45,8 @@ vector<vector<Edge>> sorted_edges;
 int ncities = 0;
 double w;
 
+double sorted_probs[MAX_CITIES];
+
 boost::container::vector<Solution*> solutions; 
 
 int initial_city = 0;
@@ -76,7 +78,7 @@ void read_probabilities(const char *filename){
     if (f==NULL){printf( "No se puede abrir el fichero.\n" );}
     rewind (f);
     for (y = 0; y < ncities; y++) {
-      for (x = 0; x < 5; x++) {
+      for (x = 0; x < 24; x++) {
 		fscanf(f, "%lf", &num);
 		probabilities_table[y][x] = num;
       }
@@ -172,6 +174,21 @@ void sort_edges() {
 
  }
 
+void get_min_probs(){
+	double min_node = LARGE;
+	for (size_t i = 0; i < ncities; i++)
+	{
+		for (size_t j = 0; j < 5; j++)
+		{
+			if(min_node > probabilities_table[i][j]) min_node = probabilities_table[i][j];
+		}
+		
+		sorted_probs[i] = min_node;
+		min_node = LARGE;
+	}
+	
+}
+
 double in_out(short city, vector<short> visited ) {
 
    double val = 0.0; 
@@ -196,12 +213,31 @@ double in_out(short city, vector<short> visited ) {
     }
    
     val += sorted_edges[city][1].cost + sorted_edges[initial_city][1].cost;
-
+	//printf("h time calculated %1.f \n", val);
     return val*0.5;
 
  }
 
-int get_time_frame(double g_t) { return trunc(g_t/60); }
+double in_out_prob(short city, vector<short> visited){
+	double val = 0.0; 
+	int count_a=0, count_b=0;
+   	for(int i=0; i<ncities; i++){ // for the missing cities
+   		
+        if(i != city && !visited[i] ){ //if is not the same city and is not in the subtour
+            val += sorted_probs[i];
+        }   
+    }
+	val += sorted_probs[city] + sorted_probs[initial_city];
+	//printf("h prob calculated %1.f \n", val);
+	return val;
+   
+}
+
+
+int get_time_frame(double g_t) { 
+		if(g_t > 1440) return trunc((g_t-1440)/60);
+		return trunc(g_t/60); 
+	}
 
 double get_min_g2() {
 	if(solutions.empty()) return LARGE;
@@ -212,26 +248,33 @@ double get_min_g2() {
 void get_successors(Node_h* current, vector<short> cities_visited){
 
 	vector<int> v;
-	double h,g_t,g_p,f;
+	double h_t,h_p,g_t,g_p,f,h0_t,h0_p;
 	pair<double,double> g;
+	pair<double,double> h;
 	if(current->father == NULL) {
 		for(short i=0; i<ncities; i++){ 
 			if(i != initial_city) {
 
-				h = 0; //in_out(i,cities_visited);
+				h_t = in_out(i,cities_visited);
+				h_p = in_out_prob(i,cities_visited);
+
 				g_t = current->g.first + distance_matrix[current->city][i];
 				int frame = get_time_frame(g_t);
 				g_p = current->g.second + (1 - probabilities_table[i][frame]);
 				//printf("prob for frame %d: %.1f \n", frame, (1 - probabilities_table[i][frame]));
-				f = (g_t+h*w)*1000000+g_p;
+				f = ((g_t+h_t)*w)*1000000+(g_p+h_p);
 				g = make_pair(g_t,g_p);
+				h = make_pair(h_t,h_p);
 				double g2_min = get_min_g2();
-				if(g_p +h >= g2_min) continue;
+				if(g_p +h_p >= g2_min) continue;
 
 				
 				Node_h* succ = new Node_h(i,g,h,f,current->depth+1,v,current);
 				cout<<"city: " <<succ->city<<endl;
+				
 				printf("g_t, g_p: ( %.1f, %.1f ) \n", g.first, g.second);
+				printf("h_t, h_p: ( %.1f, %.1f ) \n", h.first, h.second);
+				printf("f: %.1f \n", f);
 				//cout<<i<<" ";
 				//print_node(succ,current_solution,cities_visited);
 				generated_nodes++;
@@ -244,19 +287,23 @@ void get_successors(Node_h* current, vector<short> cities_visited){
 		for(auto &past_succ: current->father->succs){
 			if(current->depth == ncities){
 				//when all cities are visited
+				h_t = 0.0;
+				h_p = 0.0;
 				cout<<"going back"<<endl;
 				g_t = current->g.first + distance_matrix[current->city][initial_city];
 				int frame = get_time_frame(g_t);
 				g_p = current->g.second + (1- probabilities_table[initial_city][frame]);
 				//printf("prob for frame %d: %.1f \n", frame, (1- probabilities_table[initial_city][frame]));
 				g = make_pair(g_t,g_p);
-				h = 0;
-				f = (g_t*w)*1000000+g_p;
+				h = make_pair(h_t,h_p);
+				f = ((g_t+h_t)*w)*1000000+(g_p+h_p);
 				double g2_min = get_min_g2();
-				if(g_p +h >= g2_min) continue;
+				if(g_p +h_p >= g2_min) continue;
 				Node_h* succ = new Node_h(initial_city,g,h,f,current->depth+1,v,current);
 				cout<<"city: " <<succ->city<<endl;
 				printf("g_t, g_p: ( %.1f, %.1f ) \n", g.first, g.second);
+				printf("h_t, h_p: ( %.1f, %.1f ) \n", h.first, h.second);
+				printf("f: %.1f \n", f);
 				//cout<<i<<" ";
 				//print_node(succ,current_solution,cities_visited);
 				generated_nodes++;
@@ -265,21 +312,28 @@ void get_successors(Node_h* current, vector<short> cities_visited){
 			}
 			if(current->city != past_succ && past_succ != initial_city){
 
-				h = 0; //in_out(i,cities_visited);
+
+				h0_t = in_out(past_succ,cities_visited);
+				h0_p = in_out_prob(past_succ,cities_visited);
+
+				h_t = max((current->h.first-distance_matrix[current->city][past_succ]) ,h0_t);
+				h_p = max((current->h.second-probabilities_table[current->city][past_succ]) ,h0_p);
 				g_t = current->g.first + distance_matrix[current->city][past_succ];
 				int frame = get_time_frame(g_t);
 				g_p = current->g.second + (1- probabilities_table[past_succ][frame]);
 				//printf("prob for frame %d: %.1f \n", frame, (1- probabilities_table[past_succ][frame]));
-				f = (g_t+h*w)*1000000+g_p;
+				f = ((g_t+h_t)*w)*1000000+(g_p+h_p);
 				g = make_pair(g_t,g_p);
-					
+				h = make_pair(h_t,h_p);
 				double g2_min = get_min_g2();
-				if(g_p +h >=  g2_min) continue;
+				if(g_p +h_p >=  g2_min) continue;
 	
 				Node_h* succ = new Node_h(past_succ,g,h,f,current->depth+1,v,current);
 				
 				cout<<"city: " <<succ->city<<endl;
 				printf("g_t, g_p: ( %.1f, %.1f ) \n", g.first, g.second);
+				printf("h_t, h_p: ( %.1f, %.1f ) \n", h.first, h.second);
+				printf("f: %.1f \n", f);
 				//cout<<i<<" ";
 				//print_node(succ,current_solution,cities_visited);
 				generated_nodes++;
@@ -300,25 +354,29 @@ int aStar(int init_city, double w, int lookahead) {
 	vector<int> current_solution;
 	int iter = 0;
 
-	cout<<"Doing A* search"<<endl;
+	cout<<"****** DOING BOA* SEARCH ******"<<endl;
 	vector<int> v;
 	pair<double,double> g_init = make_pair(0,0);
 	pair<double,double> h_init = make_pair(0,0);
 	
-	Node_h* initial_node = new Node_h(init_city,g_init,0,0,1,v,NULL);
+	Node_h* initial_node = new Node_h(init_city,g_init,h_init,0,1,v,NULL);
 	open.push(initial_node);
 
-
+	std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
 	while(!open.empty()) {
 
 		Node_h* current = open.top();	
 		cities_visited = fill_visited_cities(current);
 		cout<<"*****Current node****"<<endl;
 		cout<<current->city<<endl;
+		//cout<<"depth: "<<current->depth<<endl;
 		//print_node(current,current_solution,cities_visited);
 		
 		double g2_min = get_min_g2();
 		
+		//10 minute deadline
+		if(std::chrono::steady_clock::now() - start > std::chrono::seconds(600)) 
+            return -1;
 		
 		if(current->g.second+0 >= g2_min) {
 			printf("current g2 vs g2_min: (%.1f ,%.1f) \n", current->g.second, g2_min);
@@ -331,7 +389,7 @@ int aStar(int init_city, double w, int lookahead) {
 			//generate solution report
 			//current_solution = create_solution(current);
 			//cout<<"Best solution find (time): " <<current->g<<endl;
-			printf("Solution pair found (time,prob): (%.1f ,%.1f) \n", current->g.first, current->g.second);
+			//printf("Solution pair found (time,prob): (%.1f ,%.1f) \n", current->g.first, current->g.second);
 			Solution* solution = new Solution(current->g.first, current->g.second);
 			solutions.push_back(solution);
 			open.pop();
@@ -346,7 +404,7 @@ int aStar(int init_city, double w, int lookahead) {
 		cout<<"*****SUCCESSORS****"<<endl;
 		get_successors(current,cities_visited);
 		iter++;
-		cin.get();	
+		//cin.get();	
 	}
 	return -1;
 }
@@ -369,7 +427,7 @@ void search_driver(int lookahead, double w) {
 
 			cout<<"Pareto Frontier (g1,g2): "<<endl;
 			for (auto &sol : solutions){
-				printf("\t ( %d %.1lf ) \n",sol->g1, sol->g2);
+				printf("\t ( %d , %.1lf ) \n",sol->g1, sol->g2);
 			}
 			
 			cout<<"Resolution Time: "<<time_span.count()<<endl;
@@ -378,7 +436,7 @@ void search_driver(int lookahead, double w) {
 		} else {
 			cout<<"No solution found!"<<endl;
 		}
-
+		cout<<"****** ENDING BOA* SEARCH ******"<<endl;
 		open.clear();
 		closed.clear();
 		open_map.clear();
@@ -392,11 +450,12 @@ int main(int argc, char const *argv[])
 {
 	w = 1.0;
 	int lookahead = 0;
-	ncities = 4;
-	read_problem("../problems/LastMile/7.tsp");
-	read_probabilities("../problems/LastMile/7.lastmile");
+	ncities = 20;
+	read_problem("../problems/LastMile/20.3.tsp");
+	read_probabilities("../problems/LastMile/20.3.lastmile");
 	distance_matrix_caculation();
 	
+	/*
 	int values[16] = {0,40,50,150,40,0,120,20,50,120,0,30,150,20,30,0};
 	int k = 0;
 	for(unsigned i = 0; i < ncities; ++i) {
@@ -405,11 +464,11 @@ int main(int argc, char const *argv[])
 			distance_matrix[i][j] = values[k];
 			k++;
 		}
-	}
+	}*/
 
 	succ_matrix_caculation();
 	sort_edges();
-	
+	get_min_probs();
 
 	expanded_nodes = 0;
 	generated_nodes = 0;

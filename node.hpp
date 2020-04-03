@@ -7,7 +7,7 @@ using namespace boost::heap;
 struct Node_h {
     unsigned int city;  // city or state
     pair<double,double> g;
-    double h;
+    pair<double,double> h;
     double f; // f = g+h
     int depth;
     vector<int> succs;
@@ -15,7 +15,7 @@ struct Node_h {
     boost::any handler_open;
 
     //boost::container::vector<unsigned short> sol;
-    Node_h(int i,pair<double,double> j, double h_, double k, int d ,vector<int> s,Node_h* l) 
+    Node_h(int i,pair<double,double> j, pair<double,double> h_, double k, int d ,vector<int> s,Node_h* l) 
         : city(i),g(j),h(h_),f(k),depth(d),succs(s),father(l){}
    
     ~Node_h(){}
