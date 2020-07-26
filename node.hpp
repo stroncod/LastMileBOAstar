@@ -22,10 +22,10 @@ struct Node_h {
 };
 
 struct Solution {
-    int g1;
+    double g1;
     double g2;
     
-    Solution(int i, double j): g1(i), g2(j){}
+    Solution(double i, double j): g1(i), g2(j){}
     ~Solution(){}
 };
 
