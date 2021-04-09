@@ -44,6 +44,7 @@ int succ_matrix[max_problem_size][max_problem_size];
 vector<vector<Edge>> sorted_edges;
 int ncities = 0;
 int rcities = 0;
+int instance = 0;
 double w;
 
 double sorted_probs[MAX_CITIES];
@@ -326,16 +327,17 @@ double in_out_prob(Node_h* current, short next_city ,vector<short> visited){
         }
     }
 	int max_frame = get_time_frame(current->g.first+val); 
+
 	double sum_min = 0.0;
 
 	
-	if(max_frame > 24) max_frame = 24; //always gonna be zero otherwise
+	//if(max_frame > 24) max_frame = 24; //always gonna be zero otherwise
 
 	for(int i=0; i<ncities; i++){
 		double min_val = LARGE;
-		for (size_t i = last_frame; i < max_frame+1; i++) {
-			if(probabilities_table[next_city][i] < min_val) 
-				min_val = probabilities_table[next_city][i];
+		for (size_t j = last_frame; j < max_frame+1; j++) {
+			if(probabilities_table[instance][j] < min_val) 
+				min_val = probabilities_table[instance][j];
 		}
 		sum_min+=min_val;
 	}
@@ -370,7 +372,7 @@ void get_successors(Node_h* current, vector<short> cities_visited){
 				
 				h_p = in_out_prob(current,i,cities_visited);
 
-				g_p = current->g.second + probabilities_table[i][frame];
+				g_p = current->g.second + probabilities_table[instance][frame];
 
 				
 				g = make_pair(g_t,g_p);
@@ -404,7 +406,7 @@ void get_successors(Node_h* current, vector<short> cities_visited){
                 
 				int frame = get_time_frame(g_t);
 				//printf(" frame: %d",frame);
-				g_p = current->g.second + probabilities_table[initial_city][frame];
+				g_p = current->g.second + probabilities_table[instance][frame];
 				
 				
 				g = make_pair(g_t,g_p);
@@ -435,7 +437,7 @@ void get_successors(Node_h* current, vector<short> cities_visited){
 				
 				int frame = get_time_frame(g_t);
 
-				g_p = current->g.second + probabilities_table[past_succ][frame];
+				g_p = current->g.second + probabilities_table[instance][frame];
 
 				f = (g_t+h_t*w)*1000000+(g_p+h_p);
 				g = make_pair(g_t,g_p);
@@ -487,7 +489,7 @@ int aStar(int init_city, double w, int lookahead, int start_time) {
 		double g2_min = get_min_g2();
 		
 		//10 minute deadline
-		if(std::chrono::steady_clock::now() - start > std::chrono::seconds(600)) 
+		if(std::chrono::steady_clock::now() - start > std::chrono::seconds(180)) 
             return -1;
 		
 		//pareto dominance prunning
@@ -497,6 +499,10 @@ int aStar(int init_city, double w, int lookahead, int start_time) {
 			continue;
 		} 
 
+		//sanity check
+		//if(generated_nodes % 1000 == 0){
+		//	printf("%ld,%d,%d!", solutions.size(), expanded_nodes, generated_nodes);
+		//}
 		// Solution branches
 		if(current->depth > ncities) {
 
@@ -514,7 +520,9 @@ int aStar(int init_city, double w, int lookahead, int start_time) {
 			continue;
 			//cin.get();
 			//return -1;
-		}	
+		}
+
+
 
 		closed.push_back(current);
 		open.pop();
@@ -559,7 +567,7 @@ void search_driver(int lookahead, double w) {
 			chrono::duration<double> time_span = chrono::duration_cast<chrono::duration<double>>(end-start);
 			//cout<<"No solution found!"<<endl;
 			//Python script output
-			printf("No solution found!%ld,%f,%d,%d\n", solutions.size(), time_span.count(), expanded_nodes, generated_nodes);
+			printf("No solution found!%ld,%f,%d,%d", solutions.size(), time_span.count(), expanded_nodes, generated_nodes);
 		}
 		//cout<<"****** ENDING BOA* SEARCH ******"<<endl;
 		open.clear();
@@ -577,7 +585,7 @@ int main(int argc, char const *argv[])
 	int lookahead = 0;
 	ncities = atoi(argv[1]);
 	rcities = atoi(argv[2]);
-	int instance = atoi(argv[3]);
+	instance = atoi(argv[3]);
 	string s_inst = to_string(instance);
 	
 	string test_path = "test/test"+s_inst;
