@@ -52,6 +52,8 @@ int cities[MAX_CITIES];
 
 boost::container::vector<Solution*> solutions; 
 
+std::map<Node_h*, open_handle> handlers;
+
 int initial_city = 0;
 int generated_nodes;
 int expanded_nodes;
@@ -163,24 +165,22 @@ void read_probabilities(const char *filename){
     if (f==NULL){printf( "No se puede abrir el fichero.\n" );}
     rewind (f);
     for (y = 0; y < ncities; y++) {
+      cout << y << " ";
       for (x = 0; x < 25; x++) {
+      	
 		if(x > 0) { 
 			fscanf(f, "%lf", &num2);
 			//printf("x>1: %lf", num2);
-			probabilities_table[y+1][x] = num2; }
+			std::cout << num2 << " ";
+			probabilities_table[y][x] = num2; }
 		else {
 			fscanf(f, "%d", &num);
 			//printf("x0: %d ", num);
 			
 		}
       }
-
-	  //cin.get();
+      cout << endl;
     }
-
-	for (y = 0; y < 24; y++) {
-		probabilities_table[0][y] = 0.0;
-	}
     fclose (f);
 }
 
@@ -351,6 +351,40 @@ double get_min_g2() {
 	return solutions[i]->g2;
 }
 
+void prune(Node_h* last_sol){
+	long int old_size = open.size();
+	Node_h* elem;
+	int count = 0;
+	vector<open_handle> to_erase;
+	//printf("sol f: %f \n", last_sol->f);
+	//printf("sol g1: %f, sol g2: %f \n",last_sol->g.first, last_sol->g.second);
+	//printf("sol h1: %f, sol h2: %f \n",last_sol->h.first, last_sol->h.second);
+	for(Node_h* n : open){
+	
+		if (handlers.find(n) == handlers.end()){
+			printf("KEEEEY NOT FOUND");
+		} else {
+			//printf("elem->f: %f >= last_sol->f: %f \n",n->g.second+n->h.second, last_sol->g.second+last_sol->h.second);
+			if(n->g.second+n->h.second >= last_sol->g.second+last_sol->h.second){ 
+				
+				to_erase.push_back(handlers.at(n));
+				count++;
+			}
+			
+		}
+		
+		//getchar();
+	}
+	//printf("nodes to be removed: %d\n", count);
+	for (auto h : to_erase)
+        open.erase(h);
+	
+	//printf("Old Open size: %ld ", old_size);
+	//printf("New Open size: %ld ", open.size());
+	//printf("Nodes prune: %d\n", count);
+	//getchar();
+}
+
 void get_successors(Node_h* current, vector<short> cities_visited){
 
 	vector<int> v;
@@ -384,11 +418,12 @@ void get_successors(Node_h* current, vector<short> cities_visited){
 
 				
 				Node_h* succ = new Node_h(i,g,h,f,current->depth+1,v,current);
-				//printf("city %d g_t, g_p: ( %.3f, %.3f ) h_t, h_p: ( %.3f, %.3f ) \n", 
-				//		succ->city, g.first, g.second, h.first, h.second);
+				// printf("city %d g_t, g_p: ( %.3f, %.3f ) h_t, h_p: ( %.3f, %.3f ) \n", 
+				//	  succ->city, g.first, g.second, h.first, h.second);
 
 				generated_nodes++;
-				open.push(succ);
+				open_handle handler = open.push(succ);
+				handlers[succ] = handler;
 				current->succs.push_back(i);
 			}
 		}
@@ -417,11 +452,12 @@ void get_successors(Node_h* current, vector<short> cities_visited){
 				double g2_min = get_min_g2();
 				if(g_p +h_p >= g2_min) continue;
 				Node_h* succ = new Node_h(initial_city,g,h,f,current->depth+1,v,current);
-				//printf("city %d g_t, g_p: ( %.3f, %.3f ) h_t, h_p: ( %.3f, %.3f ) \n", 
+				// printf("city %d g_t, g_p: ( %.3f, %.3f ) h_t, h_p: ( %.3f, %.3f ) \n", 
 				//		succ->city, g.first, g.second, h.first, h.second);
 				
 				generated_nodes++;
-				open.push(succ);
+				open_handle handler = open.push(succ);
+				handlers[succ] = handler;
 				current->succs.push_back(past_succ);
 			}
 			if(current->city != past_succ && past_succ != initial_city){
@@ -446,11 +482,12 @@ void get_successors(Node_h* current, vector<short> cities_visited){
 				if(g_p +h_p >=  g2_min) continue;
 	
 				Node_h* succ = new Node_h(past_succ,g,h,f,current->depth+1,v,current);
-				//printf("city %d g_t, g_p: ( %.3f, %.3f ) h_t, h_p: ( %.3f, %.3f ) \n", 
+				// printf("city %d g_t, g_p: ( %.3f, %.3f ) h_t, h_p: ( %.3f, %.3f ) \n", 
 				//		succ->city, g.first, g.second, h.first, h.second);
 
 				generated_nodes++;
-				open.push(succ);
+				open_handle handler = open.push(succ);
+				handlers[succ] = handler;
 				current->succs.push_back(past_succ);
 			}
 		}
@@ -517,6 +554,7 @@ int aStar(int init_city, double w, int lookahead, int start_time) {
 					generated_nodes);
 			*/
 			open.pop();
+			prune(current);
 			continue;
 			//cin.get();
 			//return -1;
@@ -607,6 +645,13 @@ int main(int argc, char const *argv[])
 			k++;
 		}
 	}*/
+	
+	// printf("Prob table\n");
+	// for (int i = 0; i < 24; i++) {
+	//	printf("%f", probabilities_table[0][i]);
+	//	printf(" ");
+	// }
+	// printf("\n");
 	
 	succ_matrix_caculation();
 	sort_edges();
