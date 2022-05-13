@@ -13,6 +13,7 @@ struct Node_h {
     vector<int> succs;
     Node_h* father;
     boost::any handler_open;
+    int hola;
 
     //boost::container::vector<unsigned short> sol;
     Node_h(int i,pair<double,double> j, pair<double,double> h_, double k, int d ,vector<int> s,Node_h* l) 
