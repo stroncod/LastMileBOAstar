@@ -4,3 +4,5 @@ tdboarr
 *.o
 .ipynb_checkpoints
 astar
+.gr
+.txt
