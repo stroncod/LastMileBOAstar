@@ -1,2 +1,8 @@
 .vscode/
 tdboarr
+*.pickle
+*.o
+.ipynb_checkpoints
+astar
+.gr
+.txt

@@ -45,6 +45,7 @@ vector<vector<Edge>> sorted_edges;
 int ncities = 0;
 int rcities = 0;
 int instance = 0;
+int time_length;
 double w;
 
 double sorted_probs[MAX_CITIES];
@@ -141,9 +142,10 @@ void read_problem3(const char *filename) {
       for (x = 0; x < ncities; x++) {
         //printf("%d %d\n", y,x);
         if(x != y) {
+
             fscanf(f, "%ld %ld %lld",&_, &__ ,&num2);
 
-			distance_matrix[y][x] = (num2 == -1) ? LARGE : ((double) num2)/10000000000;
+			distance_matrix[y][x] = (num2 == -1) ? LARGE : ((double) num2);
 
         } else {
             distance_matrix[y][x] = LARGE;
@@ -153,6 +155,25 @@ void read_problem3(const char *filename) {
     }
     fclose (f);
 
+}
+
+void read_times(const char *filename){
+	FILE *f;
+	int node1, node2, arc_val;
+	f = fopen(filename,"r");
+	if (f==NULL){printf( "No se puede abrir el fichero.\n" );}
+	rewind (f);
+	fscanf(f, "%d");
+	for (int i = 0; i < ncities; i++) {
+		for (int j = 0; j < ncities; j++) {
+			if(i != j) {
+				fscanf(f, "%d %d %d", &node1, &node2, &arc_val);
+				//distance_matrix[i][j] = (arc_val == -1) ? LARGE : ((double) arc_val/3600);
+				distance_matrix[i][j] = (arc_val == -1) ? LARGE : ((double) arc_val/60);
+			} else { distance_matrix[i][j] = LARGE; }
+		}
+	}
+	fclose (f);
 }
 
 void read_probabilities(const char *filename){
@@ -182,6 +203,24 @@ void read_probabilities(const char *filename){
       cout << endl;
     }
     fclose (f);
+}
+
+void read_rejection_rates(const char *filename){
+	FILE *f;
+	f = fopen(filename,"r");
+    if (f==NULL){printf( "No se puede abrir el fichero.\n" );}
+	double rates;
+    rewind (f);
+	for (int i = 0; i < ncities; i++) {
+		for(int j= 0; j< time_length; ++j) {
+			fscanf(f, "%lf", &rates);
+			//printf(" %lf",rates);
+			probabilities_table[i][j] = rates;
+		}
+		//printf("\n");
+	}
+	fclose (f);
+    
 }
 
 void distance_matrix_caculation() {
@@ -280,9 +319,11 @@ void get_min_probs(){
 }
 
 int get_time_frame(double g_t) { 
-		if(g_t > 24) return trunc(g_t - trunc(g_t/24));
+		//printf("g_t: %lf\n", g_t);
+		if(g_t > 24) return trunc(g_t - 24*trunc(g_t/24));
 		return trunc(g_t); 
 }
+
 
 double in_out(short city, vector<short> visited ) {
 
@@ -330,17 +371,45 @@ double in_out_prob(Node_h* current, short next_city ,vector<short> visited){
 
 	double sum_min = 0.0;
 
-	
 	//if(max_frame > 24) max_frame = 24; //always gonna be zero otherwise
-
+	// if(max_frame > 24) return LARGE; // Keep it in the fr
+	
+	if (max_frame <= last_frame){
+		// over 24
+		int days = trunc((current->g.first+val)/24);
+		for(int i =0; i <ncities; ++i){
+			double min_val = LARGE;
+			for(int j = last_frame; j < 24*days; j++){
+				if(probabilities_table[i][j] < min_val) 
+					min_val = probabilities_table[i][j];
+			}
+			for(int k =0;  k < max_frame; ++k){
+				if(probabilities_table[i][k] < min_val) 
+					min_val = probabilities_table[i][k];
+			}
+			sum_min+=min_val;
+		}
+	} else {
+		for(int i=0; i<ncities; i++){
+			double min_val = LARGE;
+			for (int j = last_frame; j < max_frame+1; j++) {
+				if(probabilities_table[i][j] < min_val) 
+					min_val = probabilities_table[i][j];
+			}
+			sum_min+=min_val;
+		}
+	}
+		
+	
+	/*
 	for(int i=0; i<ncities; i++){
 		double min_val = LARGE;
-		for (size_t j = last_frame; j < max_frame+1; j++) {
-			if(probabilities_table[instance][j] < min_val) 
-				min_val = probabilities_table[instance][j];
+		for (int j = last_frame; j < max_frame+1; j++) {
+			if(probabilities_table[i][j] < min_val) 
+				min_val = probabilities_table[i][j];
 		}
 		sum_min+=min_val;
-	}
+	}*/
 	return sum_min;
    
 }
@@ -403,11 +472,13 @@ void get_successors(Node_h* current, vector<short> cities_visited){
 				h_t = in_out(i,cities_visited);
 
 				int frame = get_time_frame(g_t);
+				// printf("time frame=%d\n",frame);
 				
 				h_p = in_out_prob(current,i,cities_visited);
+				
 
-				g_p = current->g.second + probabilities_table[instance][frame];
-
+				g_p = current->g.second + probabilities_table[i][frame];
+				//printf("current=%lf  + new_rate=%lf \n", current->g.second,probabilities_table[i][frame]);
 				
 				g = make_pair(g_t,g_p);
 				h = make_pair(h_t,h_p);
@@ -441,7 +512,7 @@ void get_successors(Node_h* current, vector<short> cities_visited){
                 
 				int frame = get_time_frame(g_t);
 				//printf(" frame: %d",frame);
-				g_p = current->g.second + probabilities_table[instance][frame];
+				g_p = current->g.second + probabilities_table[current->city][frame];
 				
 				
 				g = make_pair(g_t,g_p);
@@ -467,18 +538,22 @@ void get_successors(Node_h* current, vector<short> cities_visited){
 				if(g_t >= LARGE) continue;
 				h0_t = in_out(past_succ,cities_visited);
 				h0_p = in_out_prob(current,past_succ,cities_visited);
-
+				
+				
 				h_t = max((current->h.first-distance_matrix[current->city][past_succ]) ,h0_t);
 				h_p = max((current->h.second-probabilities_table[current->city][past_succ]) ,h0_p);
 				
+				// printf("h0_p:%lf, h_p:%lf\n", h0_p, h_p);
+				
 				int frame = get_time_frame(g_t);
 
-				g_p = current->g.second + probabilities_table[instance][frame];
+				g_p = current->g.second + probabilities_table[past_succ][frame];
 
 				f = (g_t+h_t*w)*1000000+(g_p+h_p);
 				g = make_pair(g_t,g_p);
 				h = make_pair(h_t,h_p);
 				double g2_min = get_min_g2();
+				// printf("g_p:%lf + h_p:%lf >= g2min:%lf \n",g_p, h_p, g2_min);
 				if(g_p +h_p >=  g2_min) continue;
 	
 				Node_h* succ = new Node_h(past_succ,g,h,f,current->depth+1,v,current);
@@ -583,7 +658,7 @@ void search_driver(int lookahead, double w) {
 
 			lookahead = LARGE;
 		}
-		int start_time = 9; //9 am 
+		int start_time = 0; //9 am 
 		chrono::high_resolution_clock::time_point start = chrono::high_resolution_clock::now();
 		int sol_response = aStar(initial_city,w,lookahead,start_time);
 		chrono::high_resolution_clock::time_point end = chrono::high_resolution_clock::now();
@@ -605,7 +680,7 @@ void search_driver(int lookahead, double w) {
 			chrono::duration<double> time_span = chrono::duration_cast<chrono::duration<double>>(end-start);
 			//cout<<"No solution found!"<<endl;
 			//Python script output
-			printf("No solution found!%ld,%f,%d,%d", solutions.size(), time_span.count(), expanded_nodes, generated_nodes);
+			printf("No solution found!%ld,%f,%d,%d\n", solutions.size(), time_span.count(), expanded_nodes, generated_nodes);
 		}
 		//cout<<"****** ENDING BOA* SEARCH ******"<<endl;
 		open.clear();
@@ -621,19 +696,17 @@ int main(int argc, char const *argv[])
 {
 	w = 1.0;
 	int lookahead = 0;
+	time_length = 24;
 	ncities = atoi(argv[1]);
 	rcities = atoi(argv[2]);
-	instance = atoi(argv[3]);
-	string s_inst = to_string(instance);
-	
-	string test_path = "test/test"+s_inst;
-	string lastmile_path = "test/rejectionrates";
-	//read_problem("../problems/AdaptedFormat/51.mtsp");
-	//read_problem("../problems/LastMile/20cities/20.2.tsp");
-	//read_problem2("../problems/test1/30.tsp");
-	read_problem3(test_path.c_str());
-	read_probabilities(lastmile_path.c_str());
-	//distance_matrix_caculation();
+	const char* t_instance = argv[3];
+	const char* rr_instance = argv[4];
+
+	//read_problem3(t_instance);
+	read_times(t_instance);
+	read_rejection_rates(rr_instance);
+	//read_probabilities(rr_instace);
+
 	//Python script output
 	/*
 	int values[16] = {0,40,50,150,40,0,120,20,50,120,0,30,150,20,30,0};
