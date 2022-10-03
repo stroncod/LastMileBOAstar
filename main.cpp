@@ -547,8 +547,8 @@ void get_successors(Node_h* current, vector<short> cities_visited, int start_tim
 				h = make_pair(h_t,h_p);
 
 				f = (g_t+h_t*w)*1000000+(g_p+h_p);
-				double g2_min = get_min_g2();
-				if(g_p +h_p >= g2_min) continue;
+				//double g2_min = get_min_g2();
+				//if(g_p +h_p >= g2_min) continue;
 
 				
 				Node_h* succ = new Node_h(i,g,h,f,current->depth+1,v,current);
@@ -584,7 +584,7 @@ void get_successors(Node_h* current, vector<short> cities_visited, int start_tim
 				f = (g_t+h_t*w)*1000000+(g_p+h_p);
 
 				double g2_min = get_min_g2();
-				if(g_p +h_p >= g2_min) continue;
+				//if(g_p +h_p >= g2_min) continue;
 				Node_h* succ = new Node_h(initial_city,g,h,f,current->depth+1,v,current);
 				//printf("city %d g_t, g_p: ( %.3f, %.3f ) h_t, h_p: ( %.3f, %.3f ) \n", 
 				//		real_cities[succ->city], g.first, g.second, h.first, h.second);
@@ -617,7 +617,7 @@ void get_successors(Node_h* current, vector<short> cities_visited, int start_tim
 				h = make_pair(h_t,h_p);
 				double g2_min = get_min_g2();
 				//printf("g_p:%lf + h_p:%lf >= g2min:%lf \n",g_p, h_p, g2_min);
-				if(g_p +h_p >=  g2_min) continue;
+				//if(g_p +h_p >=  g2_min) continue;
 	
 				Node_h* succ = new Node_h(past_succ,g,h,f,current->depth+1,v,current);
 				//printf("city %d g_t, g_p: ( %.3f, %.3f ) h_t, h_p: ( %.3f, %.3f ) \n", 
@@ -668,16 +668,12 @@ int aStar(int init_city, double w, int lookahead, int start_time) {
             return -1;
 		
 		//pareto dominance prunning
-		if(current->g.second+current->h.second >= g2_min) {
+		//if(current->g.second+current->h.second >= g2_min) {
 			//printf("current g2 vs g2_min: (%.1f ,%.1f) \n", current->g.second, g2_min);
-			open.pop();
-			continue;
-		} 
+		//	open.pop();
+		//	continue;
+		//} 
 
-		//sanity check
-		//if(generated_nodes % 1000 == 0){
-		//	printf("%ld,%d,%d!", solutions.size(), expanded_nodes, generated_nodes);
-		//}
 		// Solution branches
 		if(current->depth > ncities) {
 
@@ -694,7 +690,7 @@ int aStar(int init_city, double w, int lookahead, int start_time) {
 			
 			open.pop();
 			//std::cout << "Elements in the OPEN: " <<open.size() << std::endl;
-			prune(current);
+			//prune(current);
 			//printf("Pruning");
 			//std::cout << "Elements LEFT in the OPEN: " <<open.size() << std::endl;
 			continue;
