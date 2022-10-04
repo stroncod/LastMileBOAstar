@@ -25,8 +25,9 @@ struct Node_h {
 struct Solution {
     double g1;
     double g2;
+    Node_h* final;
     
-    Solution(double i, double j): g1(i), g2(j){}
+    Solution(double i, double j, Node_h* k): g1(i), g2(j), final(k){}
     ~Solution(){}
 };
 
